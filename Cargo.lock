@@ -2677,7 +2677,7 @@ checksum = "0c9ea0ac24bc397ab3c98583a3c9ba74fa56b09a4449bbe172b9b1ddb016027a"
 
 [[package]]
 name = "cnm-cli"
-version = "0.17.2"
+version = "0.17.3"
 dependencies = [
  "affinidi-did-resolver-cache-sdk",
  "chrono",
@@ -7591,7 +7591,7 @@ checksum = "b4596b6d070b27117e987119b4dac604f3c58cfb0b191112e24771b2faeac1a6"
 
 [[package]]
 name = "pnm-cli"
-version = "0.21.0"
+version = "0.21.1"
 dependencies = [
  "affinidi-crypto",
  "affinidi-did-resolver-cache-sdk",
@@ -10959,7 +10959,7 @@ dependencies = [
 
 [[package]]
 name = "vta-cli-common"
-version = "0.22.0"
+version = "0.22.1"
 dependencies = [
  "aes-gcm 0.11.1",
  "affinidi-crypto",
@@ -11104,7 +11104,7 @@ dependencies = [
 
 [[package]]
 name = "vta-persona"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "async-trait",
  "chrono",
@@ -11144,7 +11144,7 @@ dependencies = [
 
 [[package]]
 name = "vta-sdk"
-version = "0.49.0"
+version = "0.49.1"
 dependencies = [
  "affinidi-bbs",
  "affinidi-crypto",
@@ -11213,7 +11213,7 @@ dependencies = [
 
 [[package]]
 name = "vta-service"
-version = "0.39.0"
+version = "0.39.1"
 dependencies = [
  "aes-gcm 0.11.1",
  "affinidi-bbs",
@@ -11455,7 +11455,7 @@ dependencies = [
 
 [[package]]
 name = "vtc-client"
-version = "0.7.2"
+version = "0.7.3"
 dependencies = [
  "chrono",
  "reqwest",
@@ -11558,7 +11558,7 @@ dependencies = [
 
 [[package]]
 name = "vti-common"
-version = "0.23.0"
+version = "0.23.1"
 dependencies = [
  "aes-gcm 0.11.1",
  "affinidi-data-integrity",
@@ -11637,7 +11637,7 @@ dependencies = [
 
 [[package]]
 name = "vti-rooms"
-version = "0.2.15"
+version = "0.2.16"
 dependencies = [
  "async-trait",
  "base64 0.23.1",
@@ -11664,7 +11664,7 @@ dependencies = [
 
 [[package]]
 name = "vti-rooms-dtg"
-version = "0.2.14"
+version = "0.3.0"
 dependencies = [
  "affinidi-data-integrity",
  "affinidi-secrets-resolver",

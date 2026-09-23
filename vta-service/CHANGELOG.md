@@ -2,6 +2,34 @@
 
 Notable changes to the published crates. Generated from conventional commits by
 [git-cliff](https://git-cliff.org) when a release is cut — do not edit by hand.
+## [0.39.1](https://github.com/oleksiipiliugin/verifiable-trust-infrastructure/compare/vta-service-v0.39.0...vta-service-v0.39.1) — 2026-09-23
+
+
+### Added
+
+- **vta**: Advertise TSP on a minted DID when the mediator carries it ([#1665](https://github.com/oleksiipiliugin/verifiable-trust-infrastructure/pull/1665))
+
+A persona minted by a TSP-capable VTA advertised only `DIDCommMessaging`,
+  so a Rev 3 peer reading its document kept the leg on DIDComm (Keyring
+  VTI-Q11). The cause: `addTspService` defaulted to `false` at the mint, and a
+  persona is minted by a caller that sends no such field — the SDK skips it
+  when false — so the answer was always "no" however TSP-capable the stack was.
+
+  `addTspService` becomes three-state. An explicit `true` or `false` is
+  honoured exactly as before. Absent now means "decide from what this VTA and
+  its mediator can actually carry": `services.tsp` on, a mediator configured,
+  and that mediator's own document advertising `TSPTransport` — the same check
+  VTA setup makes before advertising `#tsp` for the VTA itself.
+
+  A mediator that does not resolve answers no, which is deliberately stricter
+  than setup's warn-and-proceed. There the operator named the mediator and is
+  told; here nobody asked for `#tsp` at all, so the quiet default must not
+  publish a transport peers cannot reach.
+
+  Every internal caller passes `Some(false)`, so no existing path changes.
+
+
+
 ## [0.39.0](https://github.com/OpenVTC/verifiable-trust-infrastructure/compare/vta-service-v0.38.0...vta-service-v0.39.0) — 2026-09-22
 
 
