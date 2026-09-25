@@ -2,6 +2,218 @@
 
 Notable changes to the published crates. Generated from conventional commits by
 [git-cliff](https://git-cliff.org) when a release is cut — do not edit by hand.
+## [0.26.0](https://github.com/oleksiipiliugin/verifiable-trust-infrastructure/compare/vti-common-v0.25.0...vti-common-v0.26.0) — 2026-09-25
+
+
+### Added
+
+- **vtc**: Acl/grant on the signed door, with a passkey gesture bound to the grant ([#1641](https://github.com/oleksiipiliugin/verifiable-trust-infrastructure/pull/1641)) ([#1718](https://github.com/oleksiipiliugin/verifiable-trust-infrastructure/pull/1718))
+
+`acl/grant` is the first verb on the VTC's signed-document door that confers
+  administrative authority, and the reason none had moved: conferring admin
+  needs a passkey gesture, the bearer route reads that from the session's live
+  elevation, and a signed document has no session. `admin_signer` builds its
+  claims with an empty `session_id`, so the gate could only ever fail closed.
+
+  The design (`vtc-operation-bound-step-up.md`, #1713) binds the gesture to the
+  one operation instead, as VTI-APV-003 now permits and VTI-APV-015 describes
+  (dtgwg-vti-spec#40), using the wire dtgwg-trust-tasks-tf#631 published in
+  trust-tasks-rs 0.22.7:
+
+  1. A signed `acl/grant` that would confer admin authority runs every check the
+     bearer route runs — the same `plan_grant` — and then finds no gesture for
+     `(acting admin, digest of type + payload)`. It starts a WebAuthn ceremony
+     over the acting admin's own passkeys, parks it for 300 s, and refuses
+     `permissionDenied` with the ceremony inline as `details.stepUpRequest`: an
+     `approve-request/0.3` payload with `boundTo` (the digest salted with the
+     challenge) and no `sessionId`. The spine releases the refused document's
+     `id`.
+  2. The admin answers with `auth/step-up/approve-response/0.4` carrying
+     `webauthn` evidence. The assertion must verify against the parked ceremony,
+     assert user verification, and come from a passkey registered to the acting
+     admin. The answer is `recorded`; nothing is elevated.
+  3. The identical document is sent again. The recorded gesture is removed before
+     the grant commits, so it authorizes that grant once and nothing else.
+
+  A console key acts as its admin, so it can sign the grant and redeem the
+  gesture, but cannot make one: only a `webauthn` assertion records a gesture,
+  and a `didSigned` or absent `evidence` is refused `noGate`. The bearer route is
+  unchanged and keeps its session gate; the two doors now share `plan_grant` and
+  `commit_grant` and differ only in where the gesture is read from.
+
+  - `vtc-service/src/acl/bound_step_up.rs`: the digest (`vtc/step-up/v1\0`,
+    length-prefixed URI and JCS payload, SHA-256 multihash), the pending and
+    redeemable marks, and the TTL sweep. New keyspace `step_up_marks`, excluded
+    from backup.
+  - `vti-common`: `AuditEvent::OperationStepUpRecorded` names the task, the salted
+    `boundTo` and the credential. `AuditEvent` is `#[non_exhaustive]`, so the
+    variant is additive.
+  - trust-tasks-rs floor raised to 0.22.7 for `approve-request/0.3` and
+    `approve-response/0.4`.
+
+  `tests/signed_step_up.rs` drives the loop with the soft authenticator and holds
+  the refusals the design lists: a gesture for one grant does not authorize
+  another, a spent gesture is gone, a challenge is answered once, a signature
+  alone records nothing, a silent (non-UV) assertion and another admin's passkey
+  are refused, a grant that confers nothing asks for no gesture, and a grant that
+  would be refused anyway never asks.
+
+  One difference from the design note, recorded in its new §8: the gate is not a
+  spine step ahead of dispatch. Whether a grant needs a gesture depends on the
+  entry it would replace, and a gesture must not be asked for a grant another
+  check would refuse, so the verb calls the gate between `plan_grant` and
+  `commit_grant`. The handler is transport-neutral, so REST, DIDComm and TSP
+  still reach the same call.
+
+  `acl/change-role` is next, then VTI-APV-014's second-party consent.
+
+
+
+### Security
+
+- **auth**: Retire the superseded refresh token when a DID logs in again ([#1683](https://github.com/oleksiipiliugin/verifiable-trust-infrastructure/pull/1683))
+
+* security(auth)!: retire the superseded refresh token when a DID logs in again
+
+  Rotation makes a stolen refresh token worth one use, and reuse detection
+  notices it when it comes back. Neither could see a token that is never
+  presented twice.
+
+  `/auth/` is keyed per DID and overwrites `session:{did}`, but the reverse
+  index is a separate `refresh:{hash}` row per token, and `/auth/refresh`
+  authorises from that index alone — it never consults
+  `session.refresh_token`. A login that merely added its own index row left
+  the previous one live, so one account carried two working chains that
+  shared no token: each refreshed into its own successor, no replay ever
+  occurred, and detection never fired. A token stolen before a re-login kept
+  working indefinitely and silently, alongside its owner's, and the one
+  recovery step a user can take unaided — logging in again — did nothing to
+  it.
+
+  `handle_authenticate` now retires the outgoing token. It reads the prior
+  session's `refresh_token` before `store_session` overwrites the row,
+  removes that token's index entry with the atomic claim-and-delete (so two
+  racing logins cannot both retire it, preserving VTI-SES-030), and leaves a
+  tombstone in its place. Ordered after the new chain is durable, as on the
+  rotation path; both writes log on error rather than failing a login that
+  has already committed and minted its tokens.
+
+  `RefreshTombstone` gains `cause` to record why a token was retired.
+  `Superseded` is excluded from the innocent-retry grace window on purpose:
+  that concession answers a lost rotation response, and a client that has
+  just logged in holds its replacement. Honouring a replay there would have
+  handed the new token to whoever replayed a pre-login theft — strictly worse
+  than the gap being closed.
+
+  Replaying a superseded token is refused and audited as
+  `AuthAuditEvent::RefreshSuperseded` (`warn!`, `security_alert = true`), but
+  the session is left running. Unlike reuse, the presented token is already
+  dead — the login took its index — so revoking adds nothing against a thief,
+  while the ordinary cause is a second device still holding what it was
+  issued before the user signed in elsewhere. Killing the session there would
+  sign out the client that is demonstrably current, and the re-login it
+  forces would set the same trap again. The event still carries
+  `security_alert` because a pre-login theft and a stale device are
+  indistinguishable from the node's side; only an operator correlating them
+  can say which it was.
+
+  `cleanup_expired_sessions` now also sweeps `refresh:` entries that their
+  session no longer names. Retirement fixes new logins but cannot reach
+  entries already written, and those rows carry no TTL and are not inert: an
+  orphan resolves again as soon as its DID has a session row, so it outlives
+  a revocation and returns at the next login. The sweep is safe against a
+  concurrent login or rotation because every writer stores the session row
+  before its index entry, so an entry that disagrees with its row is stale
+  rather than half-written.
+
+  Also in this change: `RefreshReuseDetected` takes its `did` from the
+  tombstone, so the alert names the account on the `SessionGone` path where
+  the session row is absent by definition; the lost-response retry log
+  carries `audit = true`, since a stable session id had left it
+  indistinguishable from an ordinary rotation; and the module header no
+  longer describes a delete-and-recreate the handler stopped doing.
+
+  `refresh_reuse_grace` stays at 30s, now documented as a starting point
+  rather than a ceiling — a client only discovers a lost response when its
+  own HTTP timeout fires, so a deployment whose clients retry later than that
+  may want 60s. It is a user-experience call, not a security one: the
+  successor-unspent condition, not the clock, is what keeps the concession
+  narrow. `0` still disables it entirely.
+
+- **vta**: Session and consent operations are scoped to the caller's authority ([#1717](https://github.com/oleksiipiliugin/verifiable-trust-infrastructure/pull/1717))
+
+Found by the scope sweep that followed FTL-29904 ([#1715](https://github.com/oleksiipiliugin/verifiable-trust-infrastructure/pull/1715)). Both surfaces
+  checked the caller's role and never the subject or datum it acted on.
+
+  Sessions (VTI-SES-043, VTI-ACL-050). Any admin could list every session on
+  the VTA and end any of them, a super-admin's included, via
+  `DELETE /auth/sessions?did=`, `DELETE /auth/sessions/{id}` and
+  `auth/revoke-session`; initiators could list them all. Session management now
+  follows ACL management: `operations::acl::may_manage_subject` answers "may
+  this caller act on this subject" with the rule `acl/delete` applies (the
+  caller itself, a super-admin, or a managing role that can see the subject's
+  entry and is at least as privileged). A super-admin's entry names no context,
+  so a scoped admin never reaches it; a subject with no entry belongs to no
+  context and only a super-admin reaches it. `GET /auth/sessions` lists only
+  the subjects the caller may manage. `auth/revoke-session` keeps its
+  no-disclosure answer (revokedCount 0) and now also records a durable `denied`
+  row when the session existed. `auth/sessions/list` was already self-only.
+
+  Consent (VTI-CTX-001, VTI-CTX-002). Grants carried no context, so any admin
+  could write a standing Allow for any subject (a decision with no challenge)
+  or withdraw anyone's grant. `ConsentGrant` now records the context of the
+  request it answers. `consent/revoke` needs authority over that context, or
+  super-admin for a grant with none. A decision with no challenge writes a
+  context-less grant and so needs a super-admin. A challenged decision with no
+  bound approver and an empty request context now needs a super-admin, where it
+  skipped the context check. `consent/request`'s `contextHint` must be a context
+  the caller may act in.
+
+  Every refusal is audited with outcome `denied` (VTI-AUD-003) and logged with
+  `security_alert = true`.
+
+- **workspace**: No type derives Debug over secret material ([#1711](https://github.com/oleksiipiliugin/verifiable-trust-infrastructure/pull/1711))
+
+A derived `Debug` prints every field, so on a type holding a private key, a
+  seed or mnemonic, a bearer or refresh token or a password it puts the secret
+  into anything that formats the value — a `tracing` field, an `unwrap` or
+  `expect` on an enclosing type, a test failure, a panic message. About 55 types
+  across twelve crates did exactly that. It surfaced when `vtc-client` began
+  holding an operator's key in a `HolderKey`, whose derived `Debug` printed it.
+
+  Each now has a hand-written `Debug` that reports the secret as `<redacted>` —
+  presence kept visible for an `Option` — and prints every other field as
+  before, the idiom the workspace already used where someone had thought of it.
+  Among them: `HolderKey`, `Session`, `ClientIdentity`, `CredentialBundle`,
+  `SecretEntry`, `AgentConfig`, `AgentConnect`, `AuthResult`, the key-import and
+  seed-rotation requests (mnemonic), `SeedRecord`, `MnemonicExportResponse`,
+  `SecretsConfig` (seed, Vault token, AppRole secret id), `VaultSecret`, its
+  `CustomField` values and secure notes, `TotpSeed`, the VTC install flow's
+  ephemeral signing keys, setup tokens and install JWT, the VTC backup's signing
+  bundle and password, mobile-core's X25519 and Ed25519 private keys, auth tokens
+  and push tokens (including the Web Push auth secret), and vta-mcp's
+  `--agent-key`/`--holder-key`/`--agent-secrets`.
+
+  `Zeroizing<T>` is not a redaction — its `Debug` prints the inner value — so the
+  fields wrapped in it were redacted too.
+
+  `vta-sdk/tests/secret_debug_census.rs` keeps the class closed. It parses every
+  workspace crate with `syn` and fails on a `#[derive(Debug)]` struct or enum
+  whose field has a secret-sounding name (`*_key`, `*token*`, `*secret*`,
+  `seed*`, `password`, `mnemonic`, `jwt`, and `secret_id` despite its `_id`)
+  and a raw type (`String`, bytes, `Zeroizing<_>`, optionally in an `Option` or
+  behind a reference). A field whose type is another workspace type inherits that
+  type's `Debug`, which is checked where it is defined. What the name rule
+  catches and is not a secret — a claim-type vocabulary token, a webvh path
+  called `mnemonic`, the name of an entry in a secret store — is on a
+  shrink-only list with what the field holds, and the census also refuses a
+  stale entry and a walk that has stopped finding types.
+
+  Not an API change: every type still implements `Debug`; only what it prints
+  differs, and no test asserted on the old output.
+
+
+
 ## [0.25.0](https://github.com/OpenVTC/verifiable-trust-infrastructure/compare/vti-common-v0.24.0...vti-common-v0.25.0) — 2026-09-24
 
 

@@ -2,6 +2,74 @@
 
 Notable changes to the published crates. Generated from conventional commits by
 [git-cliff](https://git-cliff.org) when a release is cut — do not edit by hand.
+## [0.17.6](https://github.com/oleksiipiliugin/verifiable-trust-infrastructure/compare/cnm-cli-v0.17.5...cnm-cli-v0.17.6) — 2026-09-25
+
+
+### Added
+
+- **vtc-service**: Git-ns drift/resolve, namespace/reseat, view 0.2 ([#1703](https://github.com/oleksiipiliugin/verifiable-trust-infrastructure/pull/1703))
+
+* feat(vtc-service): git-ns drift/resolve, namespace/reseat, view 0.2
+
+  Implements the git-ns tasks added in trust-tasks #625 and #627, on
+  trust-tasks-rs 0.22.5.
+
+  - git-ns/drift/resolve 0.1: an owner adopts a forge-side role as the
+    git-ns/right/grant it is (same fixed rules, policy, consent class), or
+    reverts a forge-side change through the bridge. Items are selected by
+    type, account (role items) and observed (required to adopt). Every
+    declared code: driftNotFound, notAdoptable, accountNotLinked,
+    noMatchingRight, notRevertible, plus the family's codes.
+  - git-ns/bridge/job 0.2: sent only for the revert of a roleAdded item
+    (projectRoles with removeAccounts), in-line, so a bridge implementing
+    only 0.1 is answered notRevertible; every other job stays 0.1.
+  - git-ns/namespace/reseat 0.1: a community administrator grants a
+    permanent git.ns.admin on a headless namespace to a current member,
+    atomically with the headless check; notHeadless otherwise. The audit
+    record keeps the statement and how earlier admin records ended.
+  - git-ns/view 0.2 (served beside 0.1): the caller's own linked forge
+    accounts, narrowed to the resource's forge.
+  - git-ns/bridge/event 0.2 (served beside 0.1, same handler): a transfer
+    detaches wherever it goes; an event any of whose resources, drift items
+    included, lies outside its namespace is refused before anything is
+    applied.
+  - cnm: `cnm git drift resolve`, `cnm git reseat`; `cnm git view` asks for
+    view 0.2. vtc-client gains the matching methods.
+  - Default gitNamespace policy: namespace.reseat receives a right;
+    drift.revert documented.
+
+
+
+### Fixed
+
+- **vtc-service**: Git-ns review follow-ups — adopt policy input, legacy revoke, reseat evidence ([#1714](https://github.com/oleksiipiliugin/verifiable-trust-infrastructure/pull/1714))
+
+Follow-ups from the review of #1703.
+
+  - The policy sees an adopted drift item as `right.grant` with
+    `via: "drift.adopt"` (git-ns/drift/resolve, step 6), so a community can
+    refuse every adoption and still grant. Default policy comment and docs
+    say so.
+  - right/revoke still accepts a subject that is not a DID-core DID when a
+    recorded right names it — one granted before DID-core was enforced —
+    so no right is left that nobody can take away. Grant, transfer, adopt
+    and reseat still refuse one.
+  - A reseat's evidence comes from the audit log: each earlier git.ns.admin
+    record revoked (by whom, why — a revoke now records its reason),
+    lapsed (when) or removed on departure (when), plus records not yet
+    swept; holders are not named. The subject's own lapsed admin record is
+    replaced rather than kept beside the new one.
+  - drift/resolve adopt re-checks its item (observed value included) under
+    the store lock the grant is written under; a changed item adopts
+    nothing.
+  - Two string literals that had lost their line continuation (the
+    notHeadless message, cnm's --observed error) are fixed.
+  - cnm sanitises the VTC's error code as well as its message; the
+    notAdoptable hint for a lowering names revoke; the notRevertible hint
+    covers manual mode and accounts the projection holds.
+
+
+
 ## [0.17.5](https://github.com/OpenVTC/verifiable-trust-infrastructure/compare/cnm-cli-v0.17.4...cnm-cli-v0.17.5) — 2026-09-24
 
 

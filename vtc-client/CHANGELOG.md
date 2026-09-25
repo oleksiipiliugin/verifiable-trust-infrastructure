@@ -2,6 +2,44 @@
 
 Notable changes to the published crates. Generated from conventional commits by
 [git-cliff](https://git-cliff.org) when a release is cut — do not edit by hand.
+## [0.7.6](https://github.com/oleksiipiliugin/verifiable-trust-infrastructure/compare/vtc-client-v0.7.5...vtc-client-v0.7.6) — 2026-09-25
+
+
+### Added
+
+- **vtc-service**: Git-ns drift/resolve, namespace/reseat, view 0.2 ([#1703](https://github.com/oleksiipiliugin/verifiable-trust-infrastructure/pull/1703))
+
+* feat(vtc-service): git-ns drift/resolve, namespace/reseat, view 0.2
+
+  Implements the git-ns tasks added in trust-tasks #625 and #627, on
+  trust-tasks-rs 0.22.5.
+
+  - git-ns/drift/resolve 0.1: an owner adopts a forge-side role as the
+    git-ns/right/grant it is (same fixed rules, policy, consent class), or
+    reverts a forge-side change through the bridge. Items are selected by
+    type, account (role items) and observed (required to adopt). Every
+    declared code: driftNotFound, notAdoptable, accountNotLinked,
+    noMatchingRight, notRevertible, plus the family's codes.
+  - git-ns/bridge/job 0.2: sent only for the revert of a roleAdded item
+    (projectRoles with removeAccounts), in-line, so a bridge implementing
+    only 0.1 is answered notRevertible; every other job stays 0.1.
+  - git-ns/namespace/reseat 0.1: a community administrator grants a
+    permanent git.ns.admin on a headless namespace to a current member,
+    atomically with the headless check; notHeadless otherwise. The audit
+    record keeps the statement and how earlier admin records ended.
+  - git-ns/view 0.2 (served beside 0.1): the caller's own linked forge
+    accounts, narrowed to the resource's forge.
+  - git-ns/bridge/event 0.2 (served beside 0.1, same handler): a transfer
+    detaches wherever it goes; an event any of whose resources, drift items
+    included, lies outside its namespace is refused before anything is
+    applied.
+  - cnm: `cnm git drift resolve`, `cnm git reseat`; `cnm git view` asks for
+    view 0.2. vtc-client gains the matching methods.
+  - Default gitNamespace policy: namespace.reseat receives a right;
+    drift.revert documented.
+
+
+
 ## [0.7.5](https://github.com/OpenVTC/verifiable-trust-infrastructure/compare/vtc-client-v0.7.4...vtc-client-v0.7.5) — 2026-09-24
 
 
