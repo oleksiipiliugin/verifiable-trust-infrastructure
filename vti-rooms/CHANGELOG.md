@@ -2,6 +2,56 @@
 
 Notable changes to the published crates. Generated from conventional commits by
 [git-cliff](https://git-cliff.org) when a release is cut — do not edit by hand.
+## [0.16.0](https://github.com/oleksiipiliugin/verifiable-trust-infrastructure/compare/vti-rooms-v0.15.0...vti-rooms-v0.16.0) — 2026-10-14
+
+
+### Added
+
+- **vtc**: Room usage, room detail and limit overrides — vtc/rooms/{get,usage,limits/set} and rooms/usage ([#2077](https://github.com/oleksiipiliugin/verifiable-trust-infrastructure/pull/2077))
+
+P9 part 2 (docs/05-design-notes/data-rooms-files.md §6.2–6.3, §8.1): the host
+  tasks the console's room detail and Usage pages read, over the history and
+  overrides #2073 put in vti-rooms.
+
+  vtc/rooms/get (vtc.rooms.admin): one room's host record, assigned config and
+  every earlier config still holding its blobs, effective limits with each scope's
+  source and the host ceiling, usage and orphans, the ten largest blobs by size
+  only, and on rooms that are not private a count of members with files — never
+  their DIDs (item 5).
+
+  vtc/rooms/usage (vtc.rooms.admin): rows grouped by room, member, storage config
+  or day, filtered by room, member, config and an inclusive date range (default
+  the last 30 days; invalidRange past 400 days, inverted, or before the oldest
+  kept day), sorted, and paged by a cursor bound to its query (invalidCursor
+  otherwise). Member figures only on rooms that are not private
+  (memberUsageUnavailable when one is named). Activity by config is attributed to
+  each room's current assignment.
+
+  vtc/rooms/limits/set (vtc.rooms.admin): an override for the room, its members by
+  default, or one member; refuses aboveCeiling, memberLimitsUnavailable and
+  invalidCombination as declared, answers the effective limits, the target scope's
+  usage and overLimit, and is audited (new RoomLimitsChanged event: room, target,
+  previous, current, reason). Not parked, as the specification says: an allowance
+  is reversible and loses nothing.
+
+  rooms/usage (the room owner's read, an admin chain) on both hosts, through
+  vti_rooms::blob_tasks::usage: one entry per member holding storage or an
+  override, paged; notAvailable on a private room.
+
+  vtc/rooms/list moves to vtc.rooms.admin, as §6.2 says it should: a community can
+  hand room hosting to someone who is not a full administrator.
+
+  Both censuses carry the new tasks: conformance witnesses for the three, and
+  error-code witnesses for every code they declare.
+
+- **rooms**: Daily usage history, member index and limit overrides for room files ([#2073](https://github.com/oleksiipiliugin/verifiable-trust-infrastructure/pull/2073))
+
+The host-side data the console's room detail and Usage pages read
+  (docs/05-design-notes/data-rooms-files.md §6.2–6.3, phase P9), in vti-rooms so
+  a community and a standalone room host count the same way.
+
+
+
 ## [0.15.0](https://github.com/OpenVTC/verifiable-trust-infrastructure/compare/vti-rooms-v0.14.0...vti-rooms-v0.15.0) — 2026-10-13
 
 

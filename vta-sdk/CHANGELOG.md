@@ -2,6 +2,91 @@
 
 Notable changes to the published crates. Generated from conventional commits by
 [git-cliff](https://git-cliff.org) when a release is cut — do not edit by hand.
+## [0.69.0](https://github.com/oleksiipiliugin/verifiable-trust-infrastructure/compare/vta-sdk-v0.68.0...vta-sdk-v0.69.0) — 2026-10-14
+
+
+### Added
+
+- **vtc**: Console room detail and Room usage pages — limits, per-member usage, activity and CSV ([#2079](https://github.com/oleksiipiliugin/verifiable-trust-infrastructure/pull/2079))
+
+P9 part 3a (docs/05-design-notes/data-rooms-files.md §8.1): the admin
+  console's view of what the community stores for its rooms, over the
+  vtc/rooms/{get,usage,limits/set}/0.1 tasks #2077 serves.
+
+  - Room detail (/rooms/<roomId>, linked from each row of Data rooms): the
+    room's facts; its storage, files still on earlier configs and files
+    awaiting deletion; its ten largest files by size only; its limits with
+    where each came from (override, rooms policy, community default);
+    per-member usage on rooms that are not private (members who added nothing
+    are not listed — the host never saw them, so it is no roster); daily
+    activity over 30, 90 or 365 days. From it an administrator overrides the
+    room's limits, its members' default or one member's, clears an override,
+    or pauses and resumes uploads (filesEnabled alone, leaving every limit as
+    it is). Each change takes a reason, which the audit trail records.
+  - Room usage (/room-usage): the figures grouped by room, member, storage
+    config or day; rooms and configs past 80, 95 or 100 percent of a limit or
+    of capacity, listed first; CSV export of what is shown, with cells a
+    spreadsheet would run as a formula prefixed (OWASP CSV injection).
+  - Both pages need vtc.rooms.admin, as the room list now does. Neither shows
+    a record title, a file name or a file's contents: the host has none.
+
+  The response shapes are rendered from the specification
+  (vta_sdk::openapi wrappers → admin-ui/openapi.json → wire.ts), not written
+  by hand. Charts are hand-drawn SVG; the console has no chart library.
+
+  A size field is pre-filled in the largest unit that states it exactly
+  ("1 GiB", "1536 KB"), so re-saving a form changes nothing it was not asked
+  to. The room identifier is taken from the route as the router decoded it:
+  decoding it again would turn a did:web port's %3A into ':' and ask for a
+  different room.
+
+  Census updates: the list-limit census and its Rust counterpart gain
+  vtc/rooms/usage (100), the sidebar census gains Room usage, and the console
+  document-type manifest gains the three tasks.
+
+- **vtc**: DCQL trusted_authorities held at the response, not only published ([#1988](https://github.com/oleksiipiliugin/verifiable-trust-infrastructure/pull/1988)) ([#2067](https://github.com/oleksiipiliugin/verifiable-trust-infrastructure/pull/2067))
+
+A criterion's credential query may carry `trusted_authorities` (OpenID4VP 1.0
+  §6.1.1). The wallet uses it to choose a credential; the verifier still has to
+  check it, and the DCQL matcher does not read it. Until now the VTC published it
+  and ignored it.
+
+  - `vta_sdk::x509_issuer::x5c_issuer` returns, beside the issuer key, the key
+    identifiers of the authorities certifying it: each certificate's AKI, the SKI
+    of every certificate above the leaf, and that of the anchor reached.
+  - `aki` is held on both paths: a wallet response whose credential no named
+    authority certifies is refused `issuerNotTrusted`, and the join criterion
+    match rewrites a gated query to keys only such a credential offers. A DID
+    issuer has no chain and meets no such query. The anchors still decide trust;
+    `trusted_authorities` only narrows them.
+  - Registration refuses what cannot be held: `etsi_tl`, `openid_federation`,
+    `trusted_authorities` on a non-`dc+sd-jwt` query, an empty list, or an `aki`
+    value that is not base64url.
+
+- **vta**: Gate the TEE first-boot admin claim on a pre-registered c… ([#1987](https://github.com/oleksiipiliugin/verifiable-trust-infrastructure/pull/1987))
+
+* feat(vta)!: gate the TEE first-boot admin claim on a pre-registered claim DID
+
+  POST /bootstrap/request (Mode B) accepted an anonymous caller: whoever
+  reached a fresh TEE VTA first claimed admin, gated only by the carve-out
+  sentinel, which a hostile host can make vanish by forging its absence or
+  dropping its write.
+
+  - pnm: `bootstrap claim-did create|show|discard` mints an Ed25519 claim
+    DID before the VTA exists; the private key lives only in the OS
+    keyring (file store refused). `bootstrap connect --slug` signs the
+    request with it and drops the key once attestation verifies.
+  - vta-sdk: optional `claim_signature` on the sealed BootstrapRequest,
+    over a domain tag || client pubkey || nonce.
+  - vta-config: `tee.bootstrap_claim_did`, settable only via the tenant
+    overlay (deny_unknown_fields kept; admin_did still forbidden),
+    validated at boot and covered by the attested config digest.
+  - vta-service: verify the signature, require client_did == the
+    configured claim DID (403, nothing written), then the carve-out;
+    burn the claim DID with the sentinel on success.
+
+
+
 ## [0.68.0](https://github.com/OpenVTC/verifiable-trust-infrastructure/compare/vta-sdk-v0.67.0...vta-sdk-v0.68.0) — 2026-10-13
 
 
